@@ -7,38 +7,8 @@ import math
 import matplotlib.pyplot as plt
 import argparse
 
-# range of AIs to highlight (might add as an argument later)
-AI_RANGE = (1/12, 1/10)
+from carm import CARMData, CARMPoint
 
-class CARMData:
-    def __init__(self, memory_bandwidth: "list[float]", peak_performance: float, frequency: float, color: bool = True) -> None:
-        self.memory_bandwidth = memory_bandwidth
-        self.peak_performance = peak_performance
-        self.ridge_points     = [peak_performance / bw for bw in memory_bandwidth]
-        self.frequency        = frequency
-        self.color            = color
-
-    def from_dict(d: dict) -> "CARMData":
-        return CARMData(d["mem_bw"], d["peak_perf"], d["frequency"], d["color"])
-
-
-class CARMPoint:
-    def __init__(self, cycles: int, bytes: int, flops: int, frequency: float, tech_nodes: list, power: list, energy: list) -> None:
-        self.arithmetic_intensity = flops / bytes
-        self.performance          = frequency * flops / cycles
-        # Keep the cycles and bytes for the weighted addition of phases
-        self.cycles               = cycles
-        self.bytes                = bytes
-        # Power and energy obtained with MCPAT
-        self.tech_nodes           = tech_nodes
-        self.power                = power
-        self.energy               = energy
-
-    def __str__(self) -> str:
-        return f"{self.performance} GFLOP/s @ AI {self.arithmetic_intensity}"
-
-    def from_dict(d: dict, frequency: float) -> "CARMPoint":
-        return CARMPoint(d["cycles"], d["bytes"], d["flops"], frequency, [], [], [])
 
 def round_to_pow2(num) -> int:
     return int(2 ** round(math.log2))
@@ -77,7 +47,7 @@ def convert_plot_labels(x_ticks: bool = True, y_ticks: bool = True):
         plt.yticks(loc, get_labels(loc))
 
 
-def plot_carm(carm: CARMData, apply_label: bool = True, color_val: str = None, axis_labels: bool = True,
+def plot_rooflines(carm: CARMData, apply_label: bool = True, color_val: str = None, axis_labels: bool = True,
               linewidth: float = None, label_override: str = None) -> None:
     """Plots the CARM from the memory bandwidth and peak fp performance"""
 
@@ -166,7 +136,7 @@ def plot_points_grouped(points: "dict[str, list[CARMPoint]]"):
     plt.xlim(min(xlim[0], min(arithmetic_intensity)/2), max(xlim[1], max(arithmetic_intensity)*2))
 
 
-def zoom_on_points(points: "dict[str, CARMPoint] or dict[str, list[CARMPoint]]"):
+def zoom_on_points(points: "dict[str, CARMPoint] | dict[str, list[CARMPoint]]"):
     try:
         arithmetic_intensity = [p.arithmetic_intensity for _, p in points.items()]
         performance = [p.performance for _, p in points.items()]
@@ -178,7 +148,7 @@ def zoom_on_points(points: "dict[str, CARMPoint] or dict[str, list[CARMPoint]]")
     #plt.ylim(bottom=min(performance) / 2)
 
 
-def zoom_on_points(points: "dict[str, CARMPoint] or dict[str, list[CARMPoint]]"):
+def zoom_on_points(points: "dict[str, CARMPoint] | dict[str, list[CARMPoint]]"):
     try:
         arithmetic_intensity = [p.arithmetic_intensity for _, p in points.items()]
         performance = [p.performance for _, p in points.items()]
@@ -219,7 +189,7 @@ def highlight_ai_range(carm: CARMData, ai_range: "tuple[float, float]"):
     plt.fill_between(ai_range, roof, [-1e99, -1e99], color="#FFB2B2", alpha=1, zorder = 2.01)
 
 
-def carm_plotter_main(_plot_points: bool, _plot_ai_range: bool):
+def plot_carm(_plot_points: bool, _plot_ai_range: bool):
     os.chdir(sys.path[0])
     perf_file   = open("../results/carm_perf.json", 'r')
 
@@ -242,7 +212,7 @@ def carm_plotter_main(_plot_points: bool, _plot_ai_range: bool):
 
     # CARM plots
     for model in all_carms:
-        plot_carm(model, apply_label=(model==main_CARM))
+        plot_rooflines(model, apply_label=(model==main_CARM))
 
     carm_plot_lims(all_carms)
     plt.autoscale(False)
@@ -262,7 +232,8 @@ def carm_plotter_main(_plot_points: bool, _plot_ai_range: bool):
 
         plot_points(points)
     if _plot_ai_range:
-        highlight_ai_range(main_CARM, AI_RANGE)
+        pass
+        #highlight_ai_range(main_CARM, AI_RANGE)
 
     if not os.path.exists("../results/"):
         os.mkdir("../results/")
@@ -281,5 +252,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", action="store_true", help="Plot points")
     parser.add_argument("-r", action="store_true", help="Plot the AI range")
+    parser.add_argument("-f", action="store_true", help="The file containing ")
     args = parser.parse_args()
-        carm_plotter_main(args.p, args.r)
+    plot_carm(args.p, args.r)
