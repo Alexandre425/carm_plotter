@@ -6,7 +6,15 @@ class CARMData:
         self.peak_performance = peak_performance
         self.ridge_points     = [peak_performance / bw for bw in memory_bandwidth]
         self.frequency        = frequency
-        self.color            = color
+        #self.color            = color
+
+
+    def to_dict(self) -> "dict":
+        return {
+            "memory_bandwidth": self.memory_bandwidth,
+            "peak_performance": self.peak_performance,
+            "frequency": self.frequency,
+        }
 
     def from_dict(d: dict) -> "CARMData":
         return CARMData(d["mem_bw"], d["peak_perf"], d["frequency"], d["color"])

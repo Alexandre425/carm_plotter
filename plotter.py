@@ -22,22 +22,27 @@ def get_mem_level_names(num_levels):
         return ["L1V"] + [f"L{i+2}" for i in range(num_levels - 2)] + ["DRAM"]
 
 
+def get_human_readable_notation(x: float, round: bool = True) -> str:
+    MAG_LABEL = ["", "K", "M", "G", "T", "P"]
+
+    power = math.log2(x)
+    if round:
+        power = int(power)
+
+    if power < 0:
+        return str(float(x))
+    else:
+        label_idx = math.floor(power / 10)
+        power -= label_idx * 10
+        number = f"{2 ** power}" if round else f"{2 ** power:.3f}"
+        return f"{number}{MAG_LABEL[label_idx]}"
+
 def convert_plot_labels(x_ticks: bool = True, y_ticks: bool = True):
     """Converts the current plot's labels to power of 2 notation (kilo, mega, etc)"""
-    def get_labels(loc: list) -> "list[str]":
-        MAG_LABEL = ["", "K", "M", "G", "T", "P"]
-        lab = []
-        for l in loc:
-            pw = int(math.log2(l))
 
-            if pw < 0:
-                lab.append(str(float(l)))
-            else:
-                label_idx = math.floor(pw / 10)
-                pw -= label_idx * 10
-                lab.append(f"{2 ** pw}{MAG_LABEL[label_idx]}")
+    get_labels = lambda x: [get_human_readable_notation(l) for l in x]
 
-        return lab
+    xlim, ylim = plt.xlim(), plt.ylim()
 
     loc, _ = plt.xticks()
     if x_ticks:
@@ -45,6 +50,9 @@ def convert_plot_labels(x_ticks: bool = True, y_ticks: bool = True):
     loc, _ = plt.yticks()
     if y_ticks:
         plt.yticks(loc, get_labels(loc))
+
+    plt.xlim(xlim), plt.ylim(ylim)
+
 
 
 def plot_rooflines(carm: CARMData, apply_label: bool = True, color_val: str = None, axis_labels: bool = True,

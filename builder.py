@@ -1,15 +1,15 @@
 import math
 import json
 import argparse
-import matplotlib.pyplot as plt
-import plotter
 
-def get_bandwidth(memory_benchmark: "dict[str, int]", plot: bool) -> "list[float]":
+from carm import CARMData
+
+def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: bool) -> "list[float]":
     """Identifies and returns the memory bandwidth of each cache level from the memory benchmark"""
 
     bytes = [int(b) for b in memory_benchmark.keys()]
     cycles = [c for c in memory_benchmark.values()]
-    bandwidth = [b / c for b, c in zip(bytes, cycles)]
+    bandwidth = [frequency_hz * b / c for b, c in zip(bytes, cycles)]
 
     CLUSTER_THRESHOLD = 0.2
 
@@ -56,7 +56,7 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", plot: bool) -> "list[float
         plt.xscale("log", base=2)
         plt.yscale("log", base=2)
         plt.xlabel("Data Traffic [Bytes]")
-        plt.ylabel("Memory Bandwidth [GB/s]")
+        plt.ylabel("Memory Bandwidth [B/s]")
 
         # plot microbenchmark results
         plt.plot(bytes, bandwidth, marker='x', c='g')
@@ -66,16 +66,21 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", plot: bool) -> "list[float
             y = [c[1] for c in cluster]
             plt.plot(x, y, marker='o', c='r')
             plt.axhline(bandwidth, ls=':', c='b')
+            # annotate with bandwidth
+            plt.annotate(carm_plt.get_human_readable_notation(bandwidth, round=False), c='b',
+                         xy=(bytes[0], bandwidth), xytext=(0, 0.2), textcoords='offset fontsize')
+
+        carm_plt.convert_plot_labels()
 
     return level_bandwidth
 
 
-def get_peak_performance(arithmetic_benchmark: "dict[str, int]", plot: bool) -> float:
+def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: int, plot: bool) -> float:
     """Returns the peak arithmetic performance from the arithmetic benchmark"""
 
     arith_ops = [int(o) for o in arithmetic_benchmark.keys()]
     cycles = [c for c in arithmetic_benchmark.values()]
-    performance = [o / c for o, c in zip(arith_ops, cycles)]
+    performance = [frequency_hz * o / c for o, c in zip(arith_ops, cycles)]
 
     peak_perf = max(performance)
 
@@ -84,38 +89,49 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", plot: bool) -> 
         plt.xscale("log", base=2)
         plt.yscale("log", base=2)
         plt.xlabel("Arithmetic Operations [Ops]")
-        plt.ylabel("Arithmetic Performance [Ops/cycle]")
+        plt.ylabel("Arithmetic Performance [Ops/s]")
 
         plt.plot(arith_ops, performance, marker='x', c='g')
         plt.axhline(peak_perf, ls=':', c='b')
+        plt.annotate(carm_plt.get_human_readable_notation(peak_perf, round=False), c='b', 
+                     xy=(arith_ops[0], peak_perf), xytext=(0, 0.2), textcoords='offset fontsize')
 
+        carm_plt.convert_plot_labels()
 
     return max(performance)
 
 
-
-def build_carm(benchmark_results: "dict[str, dict[str, int]]", output_path: str = None, plot_path: str = None):
+def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int, output_path: str = None, plot_path: str = None) -> CARMData:
     """Builds the"""
 
     plot = plot_path is not None
 
     if plot:
-        plt.figure(figsize=(16, 6))
+        import matplotlib.pyplot as plt
+        import plotter as carm_plt
 
-    level_bandwidth = get_bandwidth(benchmark_results["memory"], plot)
-    arithmetic_perf = get_peak_performance(benchmark_results["arithmetic"], plot)
+        plt.figure(figsize=(14, 6))
+        plt.tight_layout()
+
+    level_bandwidth = get_bandwidth(benchmark_results["memory"], frequency_hz, plot)
+    arithmetic_perf = get_peak_performance(benchmark_results["arithmetic"], frequency_hz, plot)
+
+    carm = CARMData(level_bandwidth, arithmetic_perf, frequency_hz)
 
     if plot:
-        plt.savefig(f"{plot_path}")
+        plt.savefig(f"{plot_path}", bbox_inches='tight')
 
     if output_path:
-        pass
-    else:
-        pass
+        with open(output_path, 'w') as file:
+            json.dump(carm.to_dict(), file, indent=4)
+
+    return carm
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("CARM Builder", description="Tool to build the CARM from benchmark results")
     parser.add_argument("input", help="Path to the json file containing benchmark results")
+    parser.add_argument("frequency", type=int, help="Frequency of the core in Hz")
     parser.add_argument("--output", "-o", help="Destination path for the json file containing the CARM data, outputs to stdout if omitted")
     parser.add_argument("--plot", "-p", help="Destination path for the memory and arithmetic plot", metavar="PLOT_PATH")
     args = parser.parse_args()
@@ -123,4 +139,6 @@ if __name__ == "__main__":
     with open(f"{args.input}", "r") as file:
         benchmark_results = json.load(file)
 
-    build_carm(benchmark_results, args.output, args.plot)
+    carm = build_carm(benchmark_results, args.frequency, output_path=args.output, plot_path=args.plot)
+    if not args.output:
+        print(json.dumps(carm.to_dict(), indent=4))
