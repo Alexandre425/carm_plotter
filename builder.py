@@ -7,6 +7,10 @@ from .carm import CARMData
 import matplotlib.pyplot as plt
 from . import plotter as carm_plt
 
+def tick_formatter(val, pos):
+    return carm_plt.with_base10_prefix(val, decimal_places=1)
+
+
 def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: bool) -> "list[float]":
     """Identifies and returns the memory bandwidth of each cache level from the memory benchmark"""
 
@@ -37,8 +41,8 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
 
     # clean up the clusters, remove outliers
     for cluster in clusters:
-        # remove the 20% top outliers (minimum of 1, maximum of total-1)
-        points_to_remove = max(1, min(int(len(cluster) * 0.2), len(cluster)-1))
+        # remove the 50% top outliers (minimum of 1, maximum of total-1)
+        points_to_remove = max(1, min(int(len(cluster) * 0.5), len(cluster)-1))
         for _ in range(points_to_remove):
             average = sum(p[1] for p in cluster) / len(cluster)
             deviation = [abs(p[1] - average) for p in cluster]
@@ -50,16 +54,19 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
                     max_idx = idx
             cluster.pop(max_idx)
 
-    #level_bandwidth = [sum(p[1] for p in c) / len(c) for c in clusters]
-    level_bandwidth = [max(p[1] for p in c) for c in clusters]
+    level_bandwidth = [sum(p[1] for p in c) / len(c) for c in clusters]
+    #level_bandwidth = [max(p[1] for p in c) for c in clusters]
 
     # plot the bandwidth and clusters if requested
     if plot:
-        plt.subplot(1, 2, 1)
+        ax = plt.subplot(1, 2, 1)
         plt.xscale("log", base=2)
         plt.yscale("log", base=10)
         plt.xlabel("Data Traffic [Bytes]")
         plt.ylabel("Memory Bandwidth [B/s]")
+
+        ax.yaxis.set_major_formatter(tick_formatter)
+        ax.yaxis.set_minor_formatter(tick_formatter)
 
         # plot microbenchmark results
         plt.plot(bytes, bandwidth, marker='x', c='g')
@@ -70,27 +77,13 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
             plt.plot(x, y, marker='o', c='r')
             plt.axhline(bandwidth, ls=':', c='b')
             # annotate with bandwidth
-            plt.annotate(carm_plt.with_base10_prefix(bandwidth, round=False), c='b',
+            plt.annotate(carm_plt.with_base10_prefix(bandwidth, decimal_places=3), c='b',
                          xy=(bytes[0], bandwidth), xytext=(0, 0.2), textcoords='offset fontsize')
 
-        plt.yticks(tick_test())
-        carm_plt.convert_plot_labels(y_base = 10)
+        carm_plt.convert_plot_ticks(y_ticks=False)
 
     return level_bandwidth
 
-def tick_test():
-    bot, top = plt.ylim()
-
-    top_prefix = 10 ** (3 * math.floor(math.log10(top)/3))
-    top_p2 = 2 ** int(math.log2(top / top_prefix))
-
-    a = []
-    val = top_p2 * top_prefix
-    while val > bot:
-        a.append(val)
-        val = val // 2
-
-    return a
 
 def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: int, plot: bool) -> float:
     """Returns the peak arithmetic performance from the arithmetic benchmark"""
@@ -102,19 +95,21 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
     peak_perf = max(performance)
 
     if plot:
-        plt.subplot(1, 2, 2)
+        ax = plt.subplot(1, 2, 2)
         plt.xscale("log", base=2)
         plt.yscale("log", base=10)
         plt.xlabel("Arithmetic Operations [Ops]")
         plt.ylabel("Arithmetic Performance [Ops/s]")
 
+        ax.yaxis.set_major_formatter(tick_formatter)
+        ax.yaxis.set_minor_formatter(tick_formatter)
+
         plt.plot(arith_ops, performance, marker='x', c='g')
         plt.axhline(peak_perf, ls=':', c='b')
-        plt.annotate(carm_plt.with_base10_prefix(peak_perf, round=False), c='b', 
+        plt.annotate(carm_plt.with_base10_prefix(peak_perf, decimal_places=3), c='b',
                      xy=(arith_ops[0], peak_perf), xytext=(0, 0.2), textcoords='offset fontsize')
 
-        plt.yticks(tick_test())
-        carm_plt.convert_plot_labels(y_base = 10)
+        carm_plt.convert_plot_ticks(y_ticks=False)
 
     return max(performance)
 
@@ -141,7 +136,7 @@ def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int
             json.dump(carm.to_dict(), file, indent=4)
 
     return carm
-        
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("CARM Builder", description="Tool to build the CARM from benchmark results")

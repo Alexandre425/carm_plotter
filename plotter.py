@@ -9,7 +9,6 @@ import argparse
 
 from .carm import CARMData, CARMPoint
 
-
 def round_to_pow2(num) -> int:
     return int(2 ** round(math.log2))
 
@@ -22,7 +21,7 @@ def get_mem_level_names(num_levels):
         return ["L1V"] + [f"L{i+2}" for i in range(num_levels - 2)] + ["DRAM"]
 
 
-def with_base10_prefix(x: float, round: bool = True) -> str:
+def with_base10_prefix(x: float, decimal_places: int = 0) -> str:
     MAG_LABEL = ["", "K", "M", "G", "T", "P"]
 
     prefixes = [' ', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
@@ -31,10 +30,7 @@ def with_base10_prefix(x: float, round: bool = True) -> str:
         return "0"
 
     exp = min(int(math.log10(abs(x)) / 3), len(prefixes) - 1)
-    if round:
-        return f"{x / 10**(3*exp):.0f}{prefixes[exp]}"
-    else:
-        return f"{x / 10**(3*exp):.3f}{prefixes[exp]}"
+    return f"{x / 10**(3*exp):.{decimal_places}f}{prefixes[exp]}"
 
 
 def with_base2_prefix(x: float, round: bool = True) -> str:
@@ -48,7 +44,37 @@ def with_base2_prefix(x: float, round: bool = True) -> str:
         return f"{x / 2**(10*exp):.0f}{prefixes[exp]}"
     else:
         return f"{x / 2**(10*exp):.3f}{prefixes[exp]}"
-    
+
+
+def convert_plot_ticks(x_ticks: bool = True, y_ticks: bool = True, x_base = 2, y_base = 2):
+    get_labels_b2 = lambda x: [with_base2_prefix(l) for l in x]
+    get_labels_b10 = lambda x: [with_base10_prefix(l) for l in x]
+
+    xlim, ylim = plt.xlim(), plt.ylim() # keep the same plot limits
+
+    if x_ticks:
+        loc, _ = plt.xticks()
+        labels = get_labels_b2(loc) if x_base == 2 else get_labels_b10(loc)
+        plt.xticks(loc, labels)
+    if y_ticks:
+        bot, top = plt.ylim()
+        # get the prefix-quantity at the top, i.g. 10_000 is 1000 (kilo), 100_000_000 is 1_000_000 (mega)
+        top_prefix = 10 ** (3 * math.floor(math.log10(top)/3))
+        # get the power of 2 below the multiple of the prefix quant, i.g. 20_000 -> 20 -> 16
+        top_p2 = 2 ** int(math.log2(top / top_prefix))
+        # generate ticks by halving until we reach the plot bottom
+        ticks = []
+        val = top_p2 * top_prefix
+        while val > bot:
+            ticks.append(val)
+            val = val // 2
+
+        loc, _ = plt.yticks()
+        labels = get_labels_b2(ticks) if y_base == 2 else get_labels_b10(ticks)
+        plt.yticks(ticks, labels)
+
+    plt.xlim(xlim), plt.ylim(ylim)
+
 
 def convert_plot_labels(x_ticks: bool = True, y_ticks: bool = True, x_base = 2, y_base = 2):
     """Converts the current plot's labels to power of 2 notation (kilo, mega, etc)"""
