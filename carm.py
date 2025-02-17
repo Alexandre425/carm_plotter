@@ -1,5 +1,7 @@
 "Definitions of classes pertaining to the CARM"
 
+import json
+
 class CARMData:
     def __init__(self, memory_bandwidth: "list[float]", peak_performance: float, frequency: float, color: bool = True) -> None:
         self.memory_bandwidth = memory_bandwidth
@@ -15,6 +17,10 @@ class CARMData:
             "peak_performance": self.peak_performance,
             "frequency": self.frequency,
         }
+    
+    def to_file(self, path: str) -> None:
+        with open(path, "w") as file:
+            json.dump(self.to_dict(), file, indent=4)
 
     def from_dict(d: dict) -> "CARMData":
         return CARMData(d["mem_bw"], d["peak_perf"], d["frequency"], d["color"])

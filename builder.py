@@ -4,10 +4,8 @@ import argparse
 
 from .carm import CARMData
 
-import matplotlib.pyplot as plt
-from . import plotter as carm_plt
-
 def tick_formatter(val, pos):
+    from . import plotter as carm_plt
     return carm_plt.with_base10_prefix(val, decimal_places=1)
 
 
@@ -59,6 +57,9 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
 
     # plot the bandwidth and clusters if requested
     if plot:
+        import matplotlib.pyplot as plt
+        from . import plotter as carm_plt
+
         ax = plt.subplot(1, 2, 1)
         plt.xscale("log", base=2)
         plt.yscale("log", base=10)
@@ -95,6 +96,9 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
     peak_perf = max(performance)
 
     if plot:
+        import matplotlib.pyplot as plt
+        from . import plotter as carm_plt
+
         ax = plt.subplot(1, 2, 2)
         plt.xscale("log", base=2)
         plt.yscale("log", base=10)
@@ -114,12 +118,22 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
     return max(performance)
 
 
-def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int, output_path: str = None, plot_path: str = None) -> CARMData:
-    """Builds the"""
+def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int, plot_path: str = None) -> CARMData:
+    """Builds a CARM model from benchmark results, optionally plotting the memory bandwidth and peak performance
+
+    Args:
+        benchmark_results (dict[str, dict[str, int]]): The CARM microbenchmark results
+        frequency_hz (int): The frequency of the core (shared by the CSRs that measure cycles)
+        plot_path (str, optional): The path to the bandwidth and peak performance plot. Won't generate if `None` is passed
+
+    Returns:
+        CARMData: The built CARM model
+    """
 
     plot = plot_path is not None
 
     if plot:
+        import matplotlib.pyplot as plt
         plt.figure(figsize=(14, 6))
         plt.tight_layout()
 
@@ -130,10 +144,6 @@ def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int
 
     if plot:
         plt.savefig(f"{plot_path}", bbox_inches='tight')
-
-    if output_path:
-        with open(output_path, 'w') as file:
-            json.dump(carm.to_dict(), file, indent=4)
 
     return carm
 
@@ -149,6 +159,9 @@ if __name__ == "__main__":
     with open(f"{args.input}", "r") as file:
         benchmark_results = json.load(file)
 
-    carm = build_carm(benchmark_results, args.frequency, output_path=args.output, plot_path=args.plot)
-    if not args.output:
+    carm = build_carm(benchmark_results, args.frequency, plot_path=args.plot)
+
+    if args.output:
+        carm.to_file(args.output)
+    else:
         print(json.dumps(carm.to_dict(), indent=4))
