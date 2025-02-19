@@ -22,8 +22,6 @@ def get_mem_level_names(num_levels):
 
 
 def with_base10_prefix(x: float, decimal_places: int = 0) -> str:
-    MAG_LABEL = ["", "K", "M", "G", "T", "P"]
-
     prefixes = [' ', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
 
     if x == 0:
@@ -33,17 +31,24 @@ def with_base10_prefix(x: float, decimal_places: int = 0) -> str:
     return f"{x / 10**(3*exp):.{decimal_places}f}{prefixes[exp]}"
 
 
-def with_base2_prefix(x: float, round: bool = True) -> str:
+def with_base2_prefix(x: float, decimal_places: int = 0) -> str:
     prefixes = [' ', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi']
 
     if x == 0:
         return "0"
 
     exp = min(int(math.log2(abs(x)) / 10), len(prefixes) - 1)
-    if round:
-        return f"{x / 2**(10*exp):.0f}{prefixes[exp]}"
-    else:
-        return f"{x / 2**(10*exp):.3f}{prefixes[exp]}"
+    return f"{x / 2**(10*exp):.{decimal_places}f}{prefixes[exp]}"
+
+
+def tick_formatter_base2(val, _pos):
+    "Tick formatter for the x axis, applies a base 2 prefix (e.g. Ki, Mi)"
+    return with_base2_prefix(val, decimal_places=0)
+
+
+def tick_formatter_base10(val, _pos):
+    "Tick formatter for the y axis, applies a base 10 prefix (e.g. M, G)"
+    return with_base10_prefix(val, decimal_places=0)
 
 
 def convert_plot_ticks(x_ticks: bool = True, y_ticks: bool = True, x_base = 2, y_base = 2):
@@ -101,30 +106,30 @@ def plot_rooflines(carm: CARMData, apply_label: bool = True, color_val: str = No
               linewidth: float = None, label_override: str = None) -> None:
     """Plots the CARM from the memory bandwidth and peak fp performance"""
 
-    labels = get_mem_level_names(len(carm.memory_bandwidth))
+    roof_names = get_mem_level_names(len(carm.memory_bandwidth))
     num_rooflines = len(carm.ridge_points)
     applied_overrided_label = False
 
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c'][2-num_rooflines:]#[::-1] # This takes the first N colors and inverts the order
-    for ridge, bw, label, col in zip(carm.ridge_points, carm.memory_bandwidth, labels, colors):
+    for ridge, bw, roof_name, col in zip(carm.ridge_points, carm.memory_bandwidth, roof_names, colors):
         # plot the roofline waaay to the left and right of the ridge point
         x_lim = (ridge / 2**20, ridge * 2**20)
         x = [x_lim[0], ridge, x_lim[1]]
         y = [bw * x_lim[0], carm.peak_performance, carm.peak_performance]
         zorder = 2.1
         if not carm.color or color_val is not None:
-            label = None
+            roof_name = None
             col = color_val if color_val is not None else "grey"
             zorder = 2
 
         if label_override:
             if not applied_overrided_label:
-                label = label_override
+                roof_name = label_override
             applied_overrided_label = True
         elif not apply_label:
-            label = None
+            roof_name = None
 
-        plt.plot(x, y, color=col, label=label, zorder=zorder, linewidth=linewidth)
+        plt.plot(x, y, color=col, label=roof_name, zorder=zorder, linewidth=linewidth)
 
 
     plt.grid(True)
@@ -132,7 +137,7 @@ def plot_rooflines(carm: CARMData, apply_label: bool = True, color_val: str = No
         plt.xlabel("Arithmetic Intensity [FLOP/Byte]")
         plt.ylabel("Performance\n[GFLOP/s]")
     plt.xscale("log", base = 2)
-    plt.yscale("log", base = 2)
+    plt.yscale("log", base = 10)
 
     convert_plot_labels(x_ticks=False)
     # Center the first ridge point
