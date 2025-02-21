@@ -160,4 +160,4 @@ if __name__ == "__main__":
     if args.output:
         carm.to_file(args.output)
     else:
-        print(json.dumps(carm.to_dict(), indent=4))
+        print(carm)

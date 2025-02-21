@@ -10,6 +10,8 @@ class CARMData:
         self.frequency        = frequency
         #self.color            = color
 
+    def __str__(self):
+        return json.dumps(self.to_dict(), indent=4)
 
     def to_dict(self) -> "dict":
         return {
@@ -17,7 +19,7 @@ class CARMData:
             "peak_performance": self.peak_performance,
             "frequency": self.frequency,
         }
-    
+
     def to_file(self, path: str) -> None:
         with open(path, "w") as file:
             json.dump(self.to_dict(), file, indent=4)
