@@ -3,6 +3,7 @@ import json
 import argparse
 
 from .carm import CARMData
+from .num_formatting import with_base10_prefix, tick_formatter_base2, tick_formatter_base10
 
 def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: bool) -> "list[float]":
     """Identifies and returns the memory bandwidth of each cache level from the memory benchmark"""
@@ -53,7 +54,6 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
     # plot the bandwidth and clusters if requested
     if plot:
         import matplotlib.pyplot as plt
-        from . import plotter as carm_plt
 
         ax = plt.subplot(1, 2, 1)
         plt.xscale("log", base=2)
@@ -62,9 +62,9 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
         plt.ylabel("Memory Bandwidth [B/s]")
 
         plt.grid(True)
-        ax.xaxis.set_major_formatter(carm_plt.tick_formatter_base2)
-        ax.yaxis.set_major_formatter(carm_plt.tick_formatter_base10)
-        ax.yaxis.set_minor_formatter(carm_plt.tick_formatter_base10)
+        ax.xaxis.set_major_formatter(tick_formatter_base2)
+        ax.yaxis.set_major_formatter(tick_formatter_base10)
+        ax.yaxis.set_minor_formatter(tick_formatter_base10)
 
         # plot microbenchmark results
         plt.plot(bytes, bandwidth, marker='x', c='g')
@@ -75,7 +75,7 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
             plt.plot(x, y, marker='o', c='r')
             plt.axhline(bandwidth, ls=':', c='b')
             # annotate with bandwidth
-            plt.annotate(carm_plt.with_base10_prefix(bandwidth, decimal_places=3), c='b',
+            plt.annotate(with_base10_prefix(bandwidth, decimal_places=3), c='b',
                          xy=(bytes[0], bandwidth), xytext=(0, 0.2), textcoords='offset fontsize')
 
     return level_bandwidth
@@ -92,7 +92,6 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
 
     if plot:
         import matplotlib.pyplot as plt
-        from . import plotter as carm_plt
 
         ax = plt.subplot(1, 2, 2)
         plt.xscale("log", base=2)
@@ -102,13 +101,13 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
 
         plt.grid(True)
 
-        ax.xaxis.set_major_formatter(carm_plt.tick_formatter_base2)
-        ax.yaxis.set_major_formatter(carm_plt.tick_formatter_base10)
-        ax.yaxis.set_minor_formatter(carm_plt.tick_formatter_base10)
+        ax.xaxis.set_major_formatter(tick_formatter_base2)
+        ax.yaxis.set_major_formatter(tick_formatter_base10)
+        ax.yaxis.set_minor_formatter(tick_formatter_base10)
 
         plt.plot(arith_ops, performance, marker='x', c='g')
         plt.axhline(peak_perf, ls=':', c='b')
-        plt.annotate(carm_plt.with_base10_prefix(peak_perf, decimal_places=3), c='b',
+        plt.annotate(with_base10_prefix(peak_perf, decimal_places=3), c='b',
                      xy=(arith_ops[0], peak_perf), xytext=(0, 0.2), textcoords='offset fontsize')
 
     return max(performance)

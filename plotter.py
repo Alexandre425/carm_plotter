@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import argparse
 
 from .carm import CARMData, CARMPoint
+from .num_formatting import with_base2_prefix, with_base10_prefix
 
 def round_to_pow2(num) -> int:
     return int(2 ** round(math.log2))
@@ -19,39 +20,6 @@ def get_mem_level_names(num_levels):
         return ["L2", "DRAM"][2-num_levels:]
     else:
         return ["L1V"] + [f"L{i+2}" for i in range(num_levels - 2)] + ["DRAM"]
-
-
-def with_base10_prefix(x: float, decimal_places: int = 0) -> str:
-    prefixes = [' ', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
-
-    if x == 0:
-        return "0"
-
-    exp = min(int(math.log10(abs(x)) / 3), len(prefixes) - 1)
-    val = f"{x / 10**(3*exp):.{decimal_places}f}".strip("0").strip(".")
-
-    return f"{val}{prefixes[exp]}"
-
-
-def with_base2_prefix(x: float, decimal_places: int = 0) -> str:
-    prefixes = [' ', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi']
-
-    if x == 0:
-        return "0"
-
-    exp = min(int(math.log2(abs(x)) / 10), len(prefixes) - 1)
-    val = f"{x / 2**(10*exp):.{decimal_places}f}".strip("0").strip(".")
-    return f"{val}{prefixes[exp]}"
-
-
-def tick_formatter_base2(val, _pos):
-    "Tick formatter for the x axis, applies a base 2 prefix (e.g. Ki, Mi)"
-    return with_base2_prefix(val, decimal_places=0)
-
-
-def tick_formatter_base10(val, _pos):
-    "Tick formatter for the y axis, applies a base 10 prefix (e.g. M, G)"
-    return with_base10_prefix(val, decimal_places=2)
 
 
 def convert_plot_ticks(x_ticks: bool = True, y_ticks: bool = True, x_base = 2, y_base = 2):

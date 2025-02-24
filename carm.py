@@ -3,12 +3,11 @@
 import json
 
 class CARMData:
-    def __init__(self, memory_bandwidth: "list[float]", peak_performance: float, frequency: float, color: bool = True) -> None:
+    def __init__(self, memory_bandwidth: "list[float]", peak_performance: float, frequency_hz: float) -> None:
         self.memory_bandwidth = memory_bandwidth
         self.peak_performance = peak_performance
+        self.frequency        = frequency_hz
         self.ridge_points     = [peak_performance / bw for bw in memory_bandwidth]
-        self.frequency        = frequency
-        #self.color            = color
 
     def __str__(self):
         return json.dumps(self.to_dict(), indent=4)
@@ -17,7 +16,7 @@ class CARMData:
         return {
             "memory_bandwidth": self.memory_bandwidth,
             "peak_performance": self.peak_performance,
-            "frequency": self.frequency,
+            "frequency":        self.frequency,
         }
 
     def to_file(self, path: str) -> None:
@@ -25,23 +24,28 @@ class CARMData:
             json.dump(self.to_dict(), file, indent=4)
 
     def from_dict(d: dict) -> "CARMData":
-        return CARMData(d["mem_bw"], d["peak_perf"], d["frequency"], d["color"])
+        return CARMData(d["memory_bandwidth"], d["peak_performance"], d["frequency"])
 
 
 class CARMPoint:
-    def __init__(self, cycles: int, bytes: int, flops: int, frequency: float, tech_nodes: list, power: list, energy: list) -> None:
-        self.arithmetic_intensity = flops / bytes
-        self.performance          = frequency * flops / cycles
-        # Keep the cycles and bytes for the weighted addition of phases
+    def __init__(self, cycles: int, bytes: int, flops: int, frequency_hz: float) -> None:
         self.cycles               = cycles
         self.bytes                = bytes
-        # Power and energy obtained with MCPAT
-        self.tech_nodes           = tech_nodes
-        self.power                = power
-        self.energy               = energy
+        self.flops                = flops
+        self.frequency            = frequency_hz
+        self.arithmetic_intensity = flops / bytes
+        self.performance          = frequency_hz * flops / cycles
 
     def __str__(self) -> str:
         return f"{self.performance} GFLOP/s @ AI {self.arithmetic_intensity}"
 
-    def from_dict(d: dict, frequency: float) -> "CARMPoint":
-        return CARMPoint(d["cycles"], d["bytes"], d["flops"], frequency, [], [], [])
+    def to_dict(self) -> "dict":
+        return {
+            "cycles":    self.cycles,
+            "bytes":     self.bytes,
+            "flops":     self.flops,
+            "frequency": self.frequency,
+        }
+
+    def from_dict(d: dict, frequency_hz: float) -> "CARMPoint":
+        return CARMPoint(d["cycles"], d["bytes"], d["flops"], frequency_hz)
