@@ -2,6 +2,8 @@
 
 import json
 
+from .num_formatting import with_base10_prefix
+
 class CARMData:
     def __init__(self, memory_bandwidth: "list[float]", peak_performance: float, frequency_hz: float) -> None:
         self.memory_bandwidth = memory_bandwidth
@@ -37,7 +39,7 @@ class CARMPoint:
         self.performance          = frequency_hz * flops / cycles
 
     def __str__(self) -> str:
-        return f"{self.performance} GFLOP/s @ AI {self.arithmetic_intensity}"
+        return f"{with_base10_prefix(self.performance, decimal_places=3)}FLOP/s @ AI {self.arithmetic_intensity:.3f}"
 
     def to_dict(self) -> "dict":
         return {

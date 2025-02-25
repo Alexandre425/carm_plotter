@@ -5,112 +5,77 @@ import sys
 import json
 import math
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 import argparse
 
 from .carm import CARMData, CARMPoint
-from .num_formatting import with_base2_prefix, with_base10_prefix
-
-def round_to_pow2(num) -> int:
-    return int(2 ** round(math.log2))
+from .num_formatting import (
+    tick_formatter_base2, get_base10_prefix, get_base10_prefix_scale,
+    ScaledTickFormatter, ScaledTickLocator
+)
 
 
 def get_mem_level_names(num_levels):
     """Generates names like [L1, L2, ..., LN, DRAM], for plotting purposes"""
-    if num_levels < 3:
-        return ["L2", "DRAM"][2-num_levels:]
-    else:
-        return ["L1V"] + [f"L{i+2}" for i in range(num_levels - 2)] + ["DRAM"]
+    return [f"L{i+1}" for i in range(num_levels - 1)] + ["DRAM"]
+    
 
+def plot_rooflines(carm: CARMData, roof_names: "list[str]" = None, label_roofs: bool = True, 
+                   color: str = None, axis_labels: bool = True, linewidth: float = None, 
+                   label_override: str = None) -> None:
+    """Plots the CARM from the memory bandwidth and peak performance
 
-def convert_plot_ticks(x_ticks: bool = True, y_ticks: bool = True, x_base = 2, y_base = 2):
-    get_labels_b2 = lambda x: [with_base2_prefix(l) for l in x]
-    get_labels_b10 = lambda x: [with_base10_prefix(l) for l in x]
+    Args:
+        carm (CARMData): The roofline data to plot
+        roof_names (list[str], optional): The list of names of the roofs, starting from the highest bandwidth. Defaults to None.
+        label_roofs (bool, optional): Apply roof labels. Defaults to True.
+        color (str, optional): The color of the roofs. All roofs will share the same color if provided. 
+            Defaults to None, which automatically colors the roofs.
+        axis_labels (bool, optional): Apply axis labels (AI, performance). Defaults to True.
+        linewidth (float, optional): Width of the roof lines. Defaults to None.
+        label_override (str, optional): Single label that overrides the roof names. Applies to all roofs. Defaults to None.
+    """
 
-    xlim, ylim = plt.xlim(), plt.ylim() # keep the same plot limits
-
-    if x_ticks:
-        loc, _ = plt.xticks()
-        labels = get_labels_b2(loc) if x_base == 2 else get_labels_b10(loc)
-        plt.xticks(loc, labels)
-    if y_ticks:
-        bot, top = plt.ylim()
-        # get the prefix-quantity at the top, i.g. 10_000 is 1000 (kilo), 100_000_000 is 1_000_000 (mega)
-        top_prefix = 10 ** (3 * math.floor(math.log10(top)/3))
-        # get the power of 2 below the multiple of the prefix quant, i.g. 20_000 -> 20 -> 16
-        top_p2 = 2 ** int(math.log2(top / top_prefix))
-        # generate ticks by halving until we reach the plot bottom
-        ticks = []
-        val = top_p2 * top_prefix
-        while val > bot:
-            ticks.append(val)
-            val = val // 2
-
-        loc, _ = plt.yticks()
-        labels = get_labels_b2(ticks) if y_base == 2 else get_labels_b10(ticks)
-        plt.yticks(ticks, labels)
-
-    plt.xlim(xlim), plt.ylim(ylim)
-
-
-def convert_plot_labels(x_ticks: bool = True, y_ticks: bool = True, x_base = 2, y_base = 2):
-    """Converts the current plot's labels to power of 2 notation (kilo, mega, etc)"""
-
-    get_labels_b2 = lambda x: [with_base2_prefix(l) for l in x]
-    get_labels_b10 = lambda x: [with_base10_prefix(l) for l in x]
-
-    xlim, ylim = plt.xlim(), plt.ylim()
-
-    if x_ticks:
-        loc, _ = plt.xticks()
-        labels = get_labels_b2(loc) if x_base == 2 else get_labels_b10(loc)
-        plt.xticks(loc, labels)
-    if y_ticks:
-        loc, _ = plt.yticks()
-        labels = get_labels_b2(loc) if y_base == 2 else get_labels_b10(loc)
-        plt.yticks(loc, labels)
-
-    plt.xlim(xlim), plt.ylim(ylim)
-
-
-
-def plot_rooflines(carm: CARMData, apply_label: bool = True, color_val: str = None, axis_labels: bool = True,
-              linewidth: float = None, label_override: str = None) -> None:
-    """Plots the CARM from the memory bandwidth and peak fp performance"""
-
-    roof_names = get_mem_level_names(len(carm.memory_bandwidth))
     num_rooflines = len(carm.ridge_points)
+    if roof_names is None:
+        roof_names = get_mem_level_names(num_rooflines)
     applied_overrided_label = False
 
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c'][2-num_rooflines:]#[::-1] # This takes the first N colors and inverts the order
+    plot_max_y = carm.peak_performance * 2
+    numerical_prefix = get_base10_prefix(plot_max_y)
+    performance_scale = get_base10_prefix_scale(plot_max_y)
+
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c'][3-num_rooflines:]
     for ridge, bw, roof_name, col in zip(carm.ridge_points, carm.memory_bandwidth, roof_names, colors):
-        # plot the roofline waaay to the left and right of the ridge point
+        # plot the roofline way to the left and right of the ridge point
         x_lim = (ridge / 2**20, ridge * 2**20)
         x = [x_lim[0], ridge, x_lim[1]]
         y = [bw * x_lim[0], carm.peak_performance, carm.peak_performance]
-        zorder = 2.1
-        if not carm.color or color_val is not None:
+        if color is not None:
             roof_name = None
-            col = color_val if color_val is not None else "grey"
-            zorder = 2
+            col = color if color is not None else "grey"
 
         if label_override:
             if not applied_overrided_label:
                 roof_name = label_override
             applied_overrided_label = True
-        elif not apply_label:
+        elif not label_roofs:
             roof_name = None
 
-        plt.plot(x, y, color=col, label=roof_name, zorder=zorder, linewidth=linewidth)
-
+        plt.plot(x, y, color=col, label=roof_name, linewidth=linewidth)
 
     plt.grid(True)
     if axis_labels:
         plt.xlabel("Arithmetic Intensity [FLOP/Byte]")
-        plt.ylabel("Performance\n[GFLOP/s]")
+        plt.ylabel(f"Performance\n[{numerical_prefix}FLOP/s]")
     plt.xscale("log", base = 2)
-    plt.yscale("log", base = 10)
+    plt.yscale("log", base = 2)
 
-    convert_plot_labels(x_ticks=False)
+    axes: plt.Axes = plt.gca()
+    axes.xaxis.set_major_formatter(tick_formatter_base2)
+    axes.yaxis.set_major_locator(ScaledTickLocator(performance_scale))
+    axes.yaxis.set_major_formatter(ScaledTickFormatter(performance_scale))
+
     # Center the first ridge point
     max_x = carm.ridge_points[-1] * 2
     center_distance_to_right = max_x / carm.ridge_points[0]
@@ -121,16 +86,15 @@ def plot_rooflines(carm: CARMData, apply_label: bool = True, color_val: str = No
     plt.ylim(min_y, carm.peak_performance * 2)
 
 
-def plot_points(points: "dict[str, CARMPoint] | dict[str, list[CARMPoint]]"):
-    try:
-        # try parsing the points as if points: dict[str, CARMPoint]
-        arithmetic_intensity = [p.arithmetic_intensity for _, p in points.items()]
-        performance = [p.performance for _, p in points.items()]
-        name = [name for name, p in points.items()]
-    except:
-        # if it fails, parse them as a group
-        plot_points_grouped(points)
-        return
+def plot_points(points: "dict[str, CARMPoint]"):
+    """Plots `CARMPoint`s according to their AI and performance
+
+    Args:
+        points (dict[str, CARMPoint]): Dict with the point names (used as the label) and respective position
+    """
+    arithmetic_intensity = [p.arithmetic_intensity for _, p in points.items()]
+    performance = [p.performance for _, p in points.items()]
+    name = [name for name, p in points.items()]
 
     for ai, perf, name in zip(arithmetic_intensity, performance, name):
         #result: dict = list(result.values())[0]
@@ -147,7 +111,7 @@ def plot_points(points: "dict[str, CARMPoint] | dict[str, list[CARMPoint]]"):
     plt.ylim(min(ylim[0], min(performance)/2), max(ylim[1], max(performance)*2))
 
 
-def plot_points_grouped(points: "dict[str, list[CARMPoint]]"):
+def plot_grouped_points(points: "dict[str, list[CARMPoint]]"):
     colors = ["grey", "red"]
     coli = 0
     for group_name, group_points in points.items():
@@ -197,7 +161,6 @@ def carm_plot_lims(carms: "list[CARMData]"):
     left_ridge_point = min_peak_perf / max_bandwidth
     right_ridge_point = max_peak_perf / min_bandwidth
 
-    convert_plot_labels(x_ticks=False)
     horizontal_margin = 2
     max_x = right_ridge_point * horizontal_margin
     min_x = left_ridge_point / horizontal_margin
@@ -215,69 +178,9 @@ def highlight_ai_range(carm: CARMData, ai_range: "tuple[float, float]"):
     plt.fill_between(ai_range, roof, [-1e99, -1e99], color="#FFB2B2", alpha=1, zorder = 2.01)
 
 
-def plot_carm(_plot_points: bool, _plot_ai_range: bool):
-    os.chdir(sys.path[0])
-    perf_file   = open("../results/carm_perf.json", 'r')
-
-    # Load and parse system performance into the CARM data
-    carm_dicts: "list[dict[str, any]]" = json.load(perf_file)
-    perf_file.close()
-    all_carms: "list[CARMData]" = []
-    for carm_dict in carm_dicts:
-        carm = CARMData.from_dict(carm_dict)
-        all_carms.append(carm)
-    # the "main" model will be the the first found with color (there shouldn't be a need for more than one per plot)
-    main_CARM = all_carms[0]
-    for c in all_carms:
-        if c.color:
-            main_CARM = c
-            break
-
-    plt.clf()
-    plt.figure(figsize=(4,1.4))
-
-    # CARM plots
-    for model in all_carms:
-        plot_rooflines(model, apply_label=(model==main_CARM))
-
-    carm_plot_lims(all_carms)
-    plt.autoscale(False)
-
-    # Performance points
-    if _plot_points:
-        # Load and parse points aka benchmark performance
-        points_file = open("../results/carm_points.json", 'r')
-        raw_points: dict = json.load(points_file)
-        points_file.close()
-        points: "dict[CARMPoint] | dict[str, list[CARMPoint]]" = {}
-        for name, result in raw_points.items():
-            if isinstance(result, list):
-                points[name] = [CARMPoint.from_dict(d, main_CARM.frequency) for d in result]
-            elif isinstance(result, dict):
-                points[name] = CARMPoint.from_dict(result, main_CARM.frequency)
-
-        plot_points(points)
-    if _plot_ai_range:
-        pass
-        #highlight_ai_range(main_CARM, AI_RANGE)
-
-    if not os.path.exists("../results/"):
-        os.mkdir("../results/")
-
-    plt.legend(loc='lower right')#'best')
-    plt.savefig("../results/carm.png", bbox_inches="tight", dpi=300)
-    plt.savefig("../results/carm.pdf", bbox_inches="tight")
-    plt.savefig("../results/carm.svg", bbox_inches="tight")
-
-    if _plot_points:
-        zoom_on_points(points)
-        plt.savefig("../results/carm_zoomed.png", bbox_inches="tight", dpi=300)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", action="store_true", help="Plot points")
     parser.add_argument("-r", action="store_true", help="Plot the AI range")
     parser.add_argument("-f", action="store_true", help="The file containing ")
     args = parser.parse_args()
-    plot_carm(args.p, args.r)
