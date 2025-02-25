@@ -1,9 +1,14 @@
 import math
 import json
 import argparse
+import matplotlib.pyplot as plt
 
 from .carm import CARMData
-from .num_formatting import with_base10_prefix, tick_formatter_base2, tick_formatter_base10
+from .num_formatting import (
+    get_base10_prefix, get_base10_prefix_scale, with_base10_prefix, tick_formatter_base2, 
+    tick_formatter_base10, ScaledTickFormatter, ScaledTickLocator
+)
+
 
 def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: bool) -> "list[float]":
     """Identifies and returns the memory bandwidth of each cache level from the memory benchmark"""
@@ -53,18 +58,19 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
 
     # plot the bandwidth and clusters if requested
     if plot:
-        import matplotlib.pyplot as plt
-
+        plot_max_y = max(bandwidth)
+        numerical_prefix = get_base10_prefix(plot_max_y)
+        performance_scale = get_base10_prefix_scale(plot_max_y)
         ax = plt.subplot(1, 2, 1)
         plt.xscale("log", base=2)
-        plt.yscale("log", base=10)
+        plt.yscale("log", base=2)
         plt.xlabel("Data Traffic [Bytes]")
-        plt.ylabel("Memory Bandwidth [B/s]")
+        plt.ylabel(f"Memory Bandwidth [{numerical_prefix}B/s]")
 
         plt.grid(True)
         ax.xaxis.set_major_formatter(tick_formatter_base2)
-        ax.yaxis.set_major_formatter(tick_formatter_base10)
-        ax.yaxis.set_minor_formatter(tick_formatter_base10)
+        ax.yaxis.set_major_locator(ScaledTickLocator(performance_scale))
+        ax.yaxis.set_major_formatter(ScaledTickFormatter(performance_scale))
 
         # plot microbenchmark results
         plt.plot(bytes, bandwidth, marker='x', c='g')
@@ -91,19 +97,22 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
     peak_perf = max(performance)
 
     if plot:
-        import matplotlib.pyplot as plt
+
+        plot_max_y = max(performance)
+        numerical_prefix = get_base10_prefix(plot_max_y)
+        performance_scale = get_base10_prefix_scale(plot_max_y)
 
         ax = plt.subplot(1, 2, 2)
         plt.xscale("log", base=2)
-        plt.yscale("log", base=10)
+        plt.yscale("log", base=2)
         plt.xlabel("Arithmetic Operations [Ops]")
-        plt.ylabel("Arithmetic Performance [Ops/s]")
+        plt.ylabel(f"Arithmetic Performance [{numerical_prefix}Ops/s]")
 
         plt.grid(True)
 
         ax.xaxis.set_major_formatter(tick_formatter_base2)
-        ax.yaxis.set_major_formatter(tick_formatter_base10)
-        ax.yaxis.set_minor_formatter(tick_formatter_base10)
+        ax.yaxis.set_major_locator(ScaledTickLocator(performance_scale))
+        ax.yaxis.set_major_formatter(ScaledTickFormatter(performance_scale))
 
         plt.plot(arith_ops, performance, marker='x', c='g')
         plt.axhline(peak_perf, ls=':', c='b')
@@ -128,7 +137,6 @@ def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int
     plot = plot_path is not None
 
     if plot:
-        import matplotlib.pyplot as plt
         plt.figure(figsize=(14, 6))
         plt.tight_layout()
 
