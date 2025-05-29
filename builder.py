@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from .carm import CARMData
 from .num_formatting import (
-    get_base10_prefix, get_base10_prefix_scale, with_base10_prefix, tick_formatter_base2, 
+    get_base10_prefix, get_base10_prefix_scale, with_base10_prefix, tick_formatter_base2,
     tick_formatter_base10, ScaledTickFormatter, ScaledTickLocator
 )
 
@@ -17,7 +17,7 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
     cycles = [c for c in memory_benchmark.values()]
     bandwidth = [frequency_hz * (b / c) for b, c in zip(bytes, cycles)]
 
-    CLUSTER_THRESHOLD = 0.2
+    CLUSTER_THRESHOLD = 0.4
 
     clusters = [[]]
     for bandwidth_point in zip(bytes, bandwidth):
@@ -39,12 +39,16 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
                 clusters.append([bandwidth_point])
 
     # clean up the clusters, remove outliers
-    for cluster in clusters:
+    for cluster_idx, cluster in enumerate(clusters):
         # remove the 50% top outliers (minimum of 1, maximum of total-1)
         points_to_remove = max(1, min(int(len(cluster) * 0.5), len(cluster)-1))
         for _ in range(points_to_remove):
             average = sum(p[1] for p in cluster) / len(cluster)
-            deviation = [abs(p[1] - average) for p in cluster]
+            # For the first cluster (L1), bias the deviation to keep the top points
+            if cluster_idx == 0:
+                deviation = [abs(average - p[1]) + max(0, average - p[1]) for p in cluster]
+            else:
+                deviation = [abs(p[1] - average) for p in cluster]
             max_dev = -math.inf
             max_idx = None
             for dev, idx in zip(deviation, range(len(deviation))):
@@ -147,6 +151,7 @@ def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int
 
     if plot:
         plt.savefig(f"{plot_path}", bbox_inches='tight')
+        plt.clf()
 
     return carm
 
