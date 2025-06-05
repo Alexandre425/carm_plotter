@@ -18,10 +18,10 @@ from .num_formatting import (
 def get_mem_level_names(num_levels):
     """Generates names like [L1, L2, ..., LN, DRAM], for plotting purposes"""
     return [f"L{i+1}" for i in range(num_levels - 1)] + ["DRAM"]
-    
 
-def plot_rooflines(carm: CARMData, roof_names: "list[str]" = None, label_roofs: bool = True, 
-                   color: str = None, axis_labels: bool = True, linewidth: float = None, 
+
+def plot_rooflines(carm: CARMData, roof_names: "list[str]" = None, label_roofs: bool = True,
+                   color: str = None, axis_labels: bool = True, linewidth: float = None,
                    label_override: str = None) -> None:
     """Plots the CARM from the memory bandwidth and peak performance
 
@@ -29,7 +29,7 @@ def plot_rooflines(carm: CARMData, roof_names: "list[str]" = None, label_roofs: 
         carm (CARMData): The roofline data to plot
         roof_names (list[str], optional): The list of names of the roofs, starting from the highest bandwidth. Defaults to None.
         label_roofs (bool, optional): Apply roof labels. Defaults to True.
-        color (str, optional): The color of the roofs. All roofs will share the same color if provided. 
+        color (str, optional): The color of the roofs. All roofs will share the same color if provided.
             Defaults to None, which automatically colors the roofs.
         axis_labels (bool, optional): Apply axis labels (AI, performance). Defaults to True.
         linewidth (float, optional): Width of the roof lines. Defaults to None.
@@ -66,8 +66,8 @@ def plot_rooflines(carm: CARMData, roof_names: "list[str]" = None, label_roofs: 
 
     plt.grid(True)
     if axis_labels:
-        plt.xlabel("Arithmetic Intensity [FLOP/Byte]")
-        plt.ylabel(f"Performance\n[{numerical_prefix}FLOP/s]")
+        plt.xlabel("Arithmetic Intensity [Ops/Byte]")
+        plt.ylabel(f"Performance [{numerical_prefix}Ops/s]")
     plt.xscale("log", base = 2)
     plt.yscale("log", base = 2)
 
@@ -83,7 +83,7 @@ def plot_rooflines(carm: CARMData, roof_names: "list[str]" = None, label_roofs: 
     plt.xlim(min_x, max_x)
     # Scale y so the DRAM roofline intersects the lower left corner
     min_y = min_x * carm.memory_bandwidth[-1]
-    plt.ylim(min_y, carm.peak_performance * 2)
+    plt.ylim(min_y, carm.peak_performance * 1.3)
 
 
 def plot_points(points: "dict[str, CARMPoint]"):

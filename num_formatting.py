@@ -59,7 +59,7 @@ class ScaledTickFormatter:
 
     def __call__(self, val, pos):
         return with_base2_prefix(val / self.scale, decimal_places=3)
-    
+
 
 class ScaledTickLocator(ticker.Locator):
     def __init__(self, scale: float, max_ticks: int = 4):
@@ -71,7 +71,13 @@ class ScaledTickLocator(ticker.Locator):
         exp_min = int(math.log2(vmin / self.scale))
 
         step = 1 + (exp_max - exp_min) // self.max_ticks
-        return [self.scale * 2 ** (exp) for exp in range(exp_max, exp_min, -step)]
+        ticks = [self.scale * 2 ** (exp) for exp in range(exp_max, exp_min, -step)]
+
+        # Fall back to default locator if fewer than 2 ticks
+        if len(ticks) < 2:
+            return ticker.MaxNLocator(nbins=self.max_ticks).tick_values(vmin, vmax)
+
+        return ticks
 
     def __call__(self):
         vmin, vmax = self.axis.get_view_interval()

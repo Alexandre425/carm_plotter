@@ -100,7 +100,6 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
     peak_perf = max(performance)
 
     if plot:
-
         plot_max_y = max(performance)
         numerical_prefix = get_base10_prefix(plot_max_y)
         performance_scale = get_base10_prefix_scale(plot_max_y)
@@ -125,7 +124,7 @@ def get_peak_performance(arithmetic_benchmark: "dict[str, int]", frequency_hz: i
     return max(performance)
 
 
-def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int, plot_path: str = None) -> CARMData:
+def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int, plot_config: dict = dict()) -> CARMData:
     """Builds a CARM model from benchmark results, optionally plotting the memory bandwidth and peak performance
 
     Args:
@@ -137,20 +136,24 @@ def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int
         CARMData: The built CARM model
     """
 
-    plot = plot_path is not None
+    make_plot = len(plot_config) != 0
 
-    if plot:
-        plt.figure(figsize=(14, 3))
+    if make_plot:
+        plt.clf()
+        figsize = plot_config.get("figsize", (14, 6))
+        plt.figure(figsize=figsize)
         plt.tight_layout()
 
-    level_bandwidth = get_bandwidth(benchmark_results["memory"], frequency_hz, plot)
-    arithmetic_perf = get_peak_performance(benchmark_results["arithmetic"], frequency_hz, plot)
+    level_bandwidth = get_bandwidth(benchmark_results["memory"], frequency_hz, make_plot)
+    arithmetic_perf = get_peak_performance(benchmark_results["arithmetic"], frequency_hz, make_plot)
 
     carm = CARMData(level_bandwidth, arithmetic_perf, frequency_hz)
 
-    if plot:
-        plt.savefig(f"{plot_path}", bbox_inches='tight')
-        plt.clf()
+    if make_plot:
+        path = plot_config.get("path", None)
+        if path:
+            plt.savefig(f"{path}", bbox_inches='tight', dpi=600)
+            plt.clf()
 
     return carm
 
