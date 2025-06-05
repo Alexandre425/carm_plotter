@@ -26,8 +26,6 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
 
         cluster_avg = sum(c[1] for c in clusters[-1]) / len(current_cluster)
 
-        print(cluster_avg, bandwidth_point[1])
-
         # if the point is close to the cluster average, add it, otherwise create a new cluster
         if abs(bandwidth_point[1] - cluster_avg) < cluster_threshold * cluster_avg:
             clusters[-1].append(bandwidth_point) # add to the last cluster
@@ -142,7 +140,7 @@ def build_carm(benchmark_results: "dict[str, dict[str, int]]", frequency_hz: int
     plot = plot_path is not None
 
     if plot:
-        plt.figure(figsize=(14, 6))
+        plt.figure(figsize=(14, 3))
         plt.tight_layout()
 
     level_bandwidth = get_bandwidth(benchmark_results["memory"], frequency_hz, plot)
