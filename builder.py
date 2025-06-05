@@ -10,14 +10,12 @@ from .num_formatting import (
 )
 
 
-def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: bool) -> "list[float]":
+def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: bool, cluster_threshold: float = 0.2) -> "list[float]":
     """Identifies and returns the memory bandwidth of each cache level from the memory benchmark"""
 
     bytes = [int(b) for b in memory_benchmark.keys()]
     cycles = [c for c in memory_benchmark.values()]
     bandwidth = [frequency_hz * (b / c) for b, c in zip(bytes, cycles)]
-
-    CLUSTER_THRESHOLD = 0.4
 
     clusters = [[]]
     for bandwidth_point in zip(bytes, bandwidth):
@@ -28,8 +26,10 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
 
         cluster_avg = sum(c[1] for c in clusters[-1]) / len(current_cluster)
 
+        print(cluster_avg, bandwidth_point[1])
+
         # if the point is close to the cluster average, add it, otherwise create a new cluster
-        if abs(bandwidth_point[1] - cluster_avg) < CLUSTER_THRESHOLD * cluster_avg:
+        if abs(bandwidth_point[1] - cluster_avg) < cluster_threshold * cluster_avg:
             clusters[-1].append(bandwidth_point) # add to the last cluster
         else:
             # overwrite the last cluster if it's too small, or create a new one if it's large enough
@@ -58,6 +58,7 @@ def get_bandwidth(memory_benchmark: "dict[str, int]", frequency_hz: int, plot: b
             cluster.pop(max_idx)
 
     level_bandwidth = [sum(p[1] for p in c) / len(c) for c in clusters]
+
     #level_bandwidth = [max(p[1] for p in c) for c in clusters]
 
     # plot the bandwidth and clusters if requested
