@@ -50,4 +50,7 @@ class CARMPoint:
         }
 
     def from_dict(d: dict, frequency_hz: float) -> "CARMPoint":
-        return CARMPoint(d["cycles"], d["bytes"], d["flops"], frequency_hz)
+        flops = d.get("flops", d.get("ops"))
+        if not flops:
+            raise KeyError("flops|ops")
+        return CARMPoint(d["cycles"], d["bytes"], flops, frequency_hz)
